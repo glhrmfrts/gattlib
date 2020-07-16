@@ -441,6 +441,20 @@ int gattlib_discover_desc(gatt_connection_t* connection, gattlib_descriptor_t** 
  */
 int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid, void** buffer, size_t* buffer_len);
 
+    /**
+     * @brief Function to read GATT characteristic by it's handle
+     *
+     * @note buffer is allocated by the function. It is the responsibility of the caller to free the buffer.
+     *
+     * @param connection Active GATT connection
+     * @param handle Value handle of the GATT characteristic to read
+     * @param buffer contains the value to read. It is allocated by the function.
+     * @param buffer_len Length of the read data
+     *
+     * @return GATTLIB_SUCCESS on success or GATTLIB_* error code
+     */
+int gattlib_read_char_by_handle(gatt_connection_t* connection, uint16_t handle, void** buffer, size_t* buffer_len);
+
 /**
  * @brief Function to asynchronously read GATT characteristic
  *

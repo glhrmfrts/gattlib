@@ -30,7 +30,7 @@
 #include "gattrib.h"
 #include "gatt.h"
 
-struct gattlib_result_read_uuid_t {
+struct gattlib_result_read_t {
 	void**         buffer;
 	size_t*        buffer_len;
 	gatt_read_cb_t callback;
@@ -38,11 +38,12 @@ struct gattlib_result_read_uuid_t {
 };
 
 static void gattlib_result_read_uuid_cb(guint8 status, const guint8 *pdu, guint16 len, gpointer user_data) {
-	struct gattlib_result_read_uuid_t* gattlib_result = user_data;
+	struct gattlib_result_read_t* gattlib_result = user_data;
 	struct att_data_list *list;
 	int i;
 
 	if (status == ATT_ECODE_ATTR_NOT_FOUND) {
+      printf("NOTFOUND\n");
 		goto done;
 	}
 
@@ -53,8 +54,11 @@ static void gattlib_result_read_uuid_cb(guint8 status, const guint8 *pdu, guint1
 
 	list = dec_read_by_type_resp(pdu, len);
 	if (list == NULL) {
+      printf("NULL\n");
 		goto done;
 	}
+
+  printf("%d\n", list->num);
 
 	for (i = 0; i < list->num; i++) {
 		uint8_t *value = list->data[i];
@@ -89,6 +93,44 @@ done:
 	}
 }
 
+static void gattlib_result_read_cb(guint8 status, const guint8 *pdu, guint16 len, gpointer user_data) {
+	struct gattlib_result_read_t* gattlib_result = user_data;
+
+	if (status == ATT_ECODE_ATTR_NOT_FOUND) {
+      fprintf(stderr, "NOTFOUND\n");
+      goto done;
+	}
+
+	if (status != 0) {
+      fprintf(stderr, "Read characteristics by UUID failed: %s\n", att_ecode2str(status));
+      goto done;
+	}
+
+  *gattlib_result->buffer_len = len - 1;
+  *gattlib_result->buffer = malloc(len - 1);
+  if ((*gattlib_result->buffer) == NULL) {
+      fprintf(stderr, "No memory\n");
+      goto done;
+  }
+
+	ssize_t nread = dec_read_resp(pdu, len, *gattlib_result->buffer, len - 1);
+	if (nread < 0) {
+      printf("NULL\n");
+      goto done;
+	}
+
+  if (gattlib_result->callback) {
+      gattlib_result->callback(*gattlib_result->buffer, *gattlib_result->buffer_len);
+  }
+
+done:
+	if (gattlib_result->callback) {
+		free(gattlib_result);
+	} else {
+		gattlib_result->completed = TRUE;
+	}
+}
+
 void uuid_to_bt_uuid(uuid_t* uuid, bt_uuid_t* bt_uuid) {
 	memcpy(&bt_uuid->value, &uuid->value, sizeof(bt_uuid->value));
 	if (uuid->type == SDP_UUID16) {
@@ -106,12 +148,12 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid,
 			      void **buffer, size_t* buffer_len)
 {
 	gattlib_context_t* conn_context = connection->context;
-	struct gattlib_result_read_uuid_t* gattlib_result;
+	struct gattlib_result_read_t* gattlib_result;
 	bt_uuid_t bt_uuid;
 	const int start = 0x0001;
 	const int end   = 0xffff;
 
-	gattlib_result = malloc(sizeof(struct gattlib_result_read_uuid_t));
+	gattlib_result = malloc(sizeof(struct gattlib_result_read_t));
 	if (gattlib_result == NULL) {
 		return GATTLIB_OUT_OF_MEMORY;
 	}
@@ -127,6 +169,7 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid,
 
 	// Wait for completion of the event
 	while(gattlib_result->completed == FALSE) {
+      //printf("WAITING\n");
 		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
 	}
 
@@ -134,16 +177,41 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid,
 	return GATTLIB_SUCCESS;
 }
 
+int gattlib_read_char_by_handle(gatt_connection_t* connection, uint16_t handle, void** buffer, size_t* buffer_len) {
+    gattlib_context_t* conn_context = connection->context;
+    struct gattlib_result_read_t* gattlib_result;
+    
+    gattlib_result = malloc(sizeof(struct gattlib_result_read_t));
+    if (gattlib_result == NULL) {
+        return GATTLIB_OUT_OF_MEMORY;
+    }
+    gattlib_result->buffer         = buffer;
+    gattlib_result->buffer_len     = buffer_len;
+    gattlib_result->callback       = NULL;
+    gattlib_result->completed      = FALSE;
+
+    gatt_read_char(conn_context->attrib, handle, gattlib_result_read_cb, gattlib_result);
+
+    // Wait for completion of the event
+    while(gattlib_result->completed == FALSE) {
+        printf("WAITING\n");
+        g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+    }
+
+    free(gattlib_result);
+    return GATTLIB_SUCCESS;
+}
+
 int gattlib_read_char_by_uuid_async(gatt_connection_t* connection, uuid_t* uuid,
 				    gatt_read_cb_t gatt_read_cb)
 {
 	gattlib_context_t* conn_context = connection->context;
-	struct gattlib_result_read_uuid_t* gattlib_result;
+	struct gattlib_result_read_t* gattlib_result;
 	const int start = 0x0001;
 	const int end   = 0xffff;
 	bt_uuid_t bt_uuid;
 
-	gattlib_result = malloc(sizeof(struct gattlib_result_read_uuid_t));
+	gattlib_result = malloc(sizeof(struct gattlib_result_read_t));
 	if (gattlib_result == NULL) {
 		return GATTLIB_OUT_OF_MEMORY;
 	}
