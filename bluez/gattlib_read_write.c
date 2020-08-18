@@ -96,6 +96,8 @@ done:
 static void gattlib_result_read_cb(guint8 status, const guint8 *pdu, guint16 len, gpointer user_data) {
 	struct gattlib_result_read_t* gattlib_result = user_data;
 
+  printf("gattlib_result_read_cb: gets here?\n");
+
 	if (status == ATT_ECODE_ATTR_NOT_FOUND) {
       fprintf(stderr, "NOTFOUND\n");
       goto done;
@@ -180,7 +182,7 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid,
 int gattlib_read_char_by_handle(gatt_connection_t* connection, uint16_t handle, void** buffer, size_t* buffer_len) {
     gattlib_context_t* conn_context = connection->context;
     struct gattlib_result_read_t* gattlib_result;
-    
+
     gattlib_result = malloc(sizeof(struct gattlib_result_read_t));
     if (gattlib_result == NULL) {
         return GATTLIB_OUT_OF_MEMORY;
@@ -194,7 +196,7 @@ int gattlib_read_char_by_handle(gatt_connection_t* connection, uint16_t handle, 
 
     // Wait for completion of the event
     while(gattlib_result->completed == FALSE) {
-        printf("WAITING\n");
+        //printf("WAITING\n");
         g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
     }
 

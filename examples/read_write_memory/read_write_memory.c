@@ -55,10 +55,11 @@ void *connect_ble(void *arg) {
 	}
 
 	if (params->operation == READ) {
-		for (int j = 0; j < 40; j++) {
+		for (int j = 0; j < 80; j++) {
 			uint8_t *buffer = NULL;
 
-			ret = gattlib_read_char_by_uuid(connection, &m_uuid, (void **)&buffer, &len);
+			//ret = gattlib_read_char_by_uuid(connection, &m_uuid, (void **)&buffer, &len);
+      ret = gattlib_read_char_by_handle(connection, 0x007f, (void**)&buffer, &len);
 			if (ret != GATTLIB_SUCCESS) {
 				char uuid_str[MAX_LEN_UUID_STR + 1];
 
