@@ -96,8 +96,6 @@ done:
 static void gattlib_result_read_cb(guint8 status, const guint8 *pdu, guint16 len, gpointer user_data) {
 	struct gattlib_result_read_t* gattlib_result = user_data;
 
-  printf("gattlib_result_read_cb: gets here?\n");
-
 	if (status == ATT_ECODE_ATTR_NOT_FOUND) {
       fprintf(stderr, "NOTFOUND\n");
       goto done;

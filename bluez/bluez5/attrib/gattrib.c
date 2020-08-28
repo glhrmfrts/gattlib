@@ -328,10 +328,8 @@ guint g_attrib_send(GAttrib *attrib, guint id, const guint8 *pdu, guint16 len,
 		destroy_cb = attrib_callbacks_remove;
 	}
 
-  printf("bt_att_send1\n");
 	pend_id = bt_att_send(attrib->att, pdu[0], (void *) pdu + 1, len - 1,
 						response_cb, cb, destroy_cb);
-  printf("bt_att_send2\n");
 
 	/*
 	 * We store here pair as it is easier to handle it in response and in

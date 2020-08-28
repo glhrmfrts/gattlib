@@ -76,8 +76,8 @@ set(gattlib_SRCS gattlib_adapter.c
                  gattlib_connect.c
                  gattlib_discover.c
                  gattlib_read_write.c
-                 ${CMAKE_SOURCE_DIR}/common/gattlib_common.c
-                 ${CMAKE_SOURCE_DIR}/common/gattlib_eddystone.c)
+                 ../common/gattlib_common.c
+                 ../common/gattlib_eddystone.c)
 
 # Added Glib support
 pkg_search_module(GLIB REQUIRED glib-2.0)
@@ -88,7 +88,7 @@ list(APPEND gattlib_LIBS ${GLIB_LDFLAGS})
 include_directories(${BLUEZ_INCLUDE_DIRS})
 list(APPEND gattlib_LIBS ${BLUEZ_LDFLAGS})
 
-include_directories(. ${CMAKE_SOURCE_DIR}/common)
+include_directories(. ../common)
 if(BLUEZ_VERSION_MAJOR STREQUAL "4")
   list(APPEND gattlib_SRCS ${bluez4_SRCS})
   include_directories(${bluez4_DIR}/attrib ${bluez4_DIR}/btio ${bluez4_DIR}/src ${bluez4_DIR}/lib)
@@ -108,4 +108,11 @@ else()
   add_library(gattlib ${gattlib_SRCS})
   target_include_directories(gattlib INTERFACE ../include)
   target_link_libraries(gattlib ${gattlib_LIBS})
+
+  set_target_properties( gattlib
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  )
 endif()
