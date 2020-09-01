@@ -126,6 +126,19 @@ struct discovered_device_arg {
 	GSList** discovered_devices_ptr;
 };
 
+static gint custom_cmp(const gchar* s1, const gchar* s2)
+{
+	if (s1 == NULL) {
+		if (s2 == NULL) return 0;
+		else 			return -1;
+	}
+	if (s2 == NULL) {
+		if (s1 == NULL) return 0;
+		else 			return 1;
+	}
+	return g_ascii_strcasecmp(s1, s2);
+}
+
 static void device_manager_on_device1_signal(const char* device1_path, struct discovered_device_arg *arg)
 {
 	GError *error = NULL;
@@ -146,13 +159,15 @@ static void device_manager_on_device1_signal(const char* device1_path, struct di
 		const gchar *address = org_bluez_device1_get_address(device1);
 
 		// Check if the device is already part of the list
-		GSList *item = g_slist_find_custom(*arg->discovered_devices_ptr, address, (GCompareFunc)g_ascii_strcasecmp);
+		GSList *item = g_slist_find_custom(*arg->discovered_devices_ptr, address, (GCompareFunc)custom_cmp);
+
 
 		// First time this device is in the list
 		if (item == NULL) {
 			// Add the device to the list
 			*arg->discovered_devices_ptr = g_slist_append(*arg->discovered_devices_ptr, g_strdup(address));
 		}
+
 
 		if ((item == NULL) || (arg->enabled_filters & GATTLIB_DISCOVER_FILTER_NOTIFY_CHANGE)) {
 			arg->callback(
@@ -161,6 +176,7 @@ static void device_manager_on_device1_signal(const char* device1_path, struct di
 				org_bluez_device1_get_name(device1),
 				arg->user_data);
 		}
+
 		g_object_unref(device1);
 	}
 }
@@ -291,6 +307,8 @@ int gattlib_adapter_scan_enable_with_filter(void *adapter, uuid_t **uuid_list, i
 	g_main_loop_run(gattlib_adapter->scan_loop);
 	// Note: The function only resumes when loop timeout as expired or g_main_loop_quit has been called.
 
+	gattlib_adapter->timeout_id = 0;
+
 	g_signal_handler_disconnect(G_DBUS_OBJECT_MANAGER(device_manager), added_signal_id);
 	g_signal_handler_disconnect(G_DBUS_OBJECT_MANAGER(device_manager), changed_signal_id);
 
@@ -315,17 +333,25 @@ int gattlib_adapter_scan_enable(void* adapter, gattlib_discovered_device_t disco
 int gattlib_adapter_scan_disable(void* adapter) {
 	struct gattlib_adapter *gattlib_adapter = adapter;
 
-	if (gattlib_adapter->scan_loop && g_main_loop_is_running(gattlib_adapter->scan_loop)) {
+	// NOTE(nemeth): commented the is_running loop check because it's never true and
+	// it doesn't make any sense????
+	if (gattlib_adapter->scan_loop/* && g_main_loop_is_running(gattlib_adapter->scan_loop)*/) {
 		GError *error = NULL;
 
 		org_bluez_adapter1_call_stop_discovery_sync(gattlib_adapter->adapter_proxy, NULL, &error);
 		// Ignore the error
 
 		// Remove timeout
-		g_source_remove(gattlib_adapter->timeout_id);
+		if (gattlib_adapter->timeout_id) {
+			g_source_remove(gattlib_adapter->timeout_id);
+		}
 
 		// Ensure the scan loop is quit
-		g_main_loop_quit(gattlib_adapter->scan_loop);
+		// NOTE(nemeth): Check if it's running before calling quit
+		if (g_main_loop_is_running(gattlib_adapter->scan_loop)) {
+			g_main_loop_quit(gattlib_adapter->scan_loop);
+		}
+
 		g_main_loop_unref(gattlib_adapter->scan_loop);
 		gattlib_adapter->scan_loop = NULL;
 	}

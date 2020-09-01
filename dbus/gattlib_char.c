@@ -290,6 +290,29 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid, void 
 	}
 }
 
+int gattlib_read_char_by_handle(gatt_connection_t* connection, uint16_t handle, void **buffer, size_t *buffer_len) {
+	struct dbus_characteristic dbus_characteristic = get_characteristic_from_handle(connection, (int)handle);
+	if (dbus_characteristic.type == TYPE_NONE) {
+		return GATTLIB_NOT_FOUND;
+	}
+#if BLUEZ_VERSION > BLUEZ_VERSIONS(5, 40)
+	else if (dbus_characteristic.type == TYPE_BATTERY_LEVEL) {
+		return read_battery_level(&dbus_characteristic, buffer, buffer_len);
+	}
+#endif
+	else {
+		int ret;
+
+		assert(dbus_characteristic.type == TYPE_GATT);
+
+		ret = read_gatt_characteristic(&dbus_characteristic, buffer, buffer_len);
+
+		g_object_unref(dbus_characteristic.gatt);
+
+		return ret;
+	}
+}
+
 int gattlib_read_char_by_uuid_async(gatt_connection_t* connection, uuid_t* uuid, gatt_read_cb_t gatt_read_cb) {
 	int ret = GATTLIB_SUCCESS;
 

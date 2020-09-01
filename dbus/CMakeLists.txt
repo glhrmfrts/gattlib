@@ -78,7 +78,7 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/org-bluez-battery1.c
                    COMMENT "Generate D-Bus 'org.bluez.Battery1.xml'"
                    )
 
-include_directories(. ${CMAKE_SOURCE_DIR}/common ${CMAKE_CURRENT_BINARY_DIR} ${GIO_UNIX_INCLUDE_DIRS} ${BLUEZ_INCLUDE_DIRS})
+include_directories(. ../common ${CMAKE_CURRENT_BINARY_DIR} ${GIO_UNIX_INCLUDE_DIRS} ${BLUEZ_INCLUDE_DIRS})
 
 set(gattlib_SRCS gattlib.c
                  gattlib_adapter.c
@@ -87,8 +87,8 @@ set(gattlib_SRCS gattlib.c
                  gattlib_notification.c
                  gattlib_stream.c
                  bluez5/lib/uuid.c
-                 ${CMAKE_SOURCE_DIR}/common/gattlib_common.c
-                 ${CMAKE_SOURCE_DIR}/common/gattlib_eddystone.c
+                 ../common/gattlib_common.c
+                 ../common/gattlib_eddystone.c
                  ${CMAKE_CURRENT_BINARY_DIR}/org-bluez-adaptater1.c
                  ${CMAKE_CURRENT_BINARY_DIR}/org-bluez-device1.c
                  ${CMAKE_CURRENT_BINARY_DIR}/org-bluez-gattcharacteristic1.c
@@ -120,6 +120,9 @@ if(GATTLIB_SHARED_LIB)
 else()
   add_library(gattlib ${gattlib_SRCS})
 endif()
+
+set_target_properties( gattlib PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib") 
+
 
 target_include_directories(gattlib PUBLIC ../include)
 target_link_libraries(gattlib ${gattlib_LIBS})
