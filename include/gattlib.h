@@ -490,6 +490,10 @@ int gattlib_write_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid, cons
  */
 int gattlib_write_char_by_handle(gatt_connection_t* connection, uint16_t handle, const void* buffer, size_t buffer_len);
 
+int gn_gattlib_reliable_write_char_by_handle(gatt_connection_t* connection, uint16_t handle, const void* buffer, size_t buffer_len);
+
+int gn_gattlib_write_char_by_handle_with_timeout(gatt_connection_t* connection, uint16_t handle, const void* buffer, size_t buffer_len, int timeout_secs, int* timed_out);
+
 /**
  * @brief Function to write without response to the GATT characteristic UUID
  *

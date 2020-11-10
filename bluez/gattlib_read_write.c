@@ -238,6 +238,17 @@ void gattlib_write_result_cb(guint8 status, const guint8 *pdu, guint16 len, gpoi
 	*write_completed = TRUE;
 }
 
+enum {
+	GN_WRITE_INCOMPLETE = 0,
+	GN_WRITE_OK = 1,
+	GN_WRITE_TIMEOUT = 2,
+};
+
+gboolean gn_write_timeout_cb(gpointer user_data) {
+
+	return G_SOURCE_REMOVE;
+}
+
 int gattlib_write_char_by_handle(gatt_connection_t* connection, uint16_t handle, const void* buffer, size_t buffer_len) {
 	gattlib_context_t* conn_context = connection->context;
 	int write_completed = FALSE;
@@ -250,7 +261,53 @@ int gattlib_write_char_by_handle(gatt_connection_t* connection, uint16_t handle,
 
 	// Wait for completion of the event
 	while(write_completed == FALSE) {
+		//printf("gattlib_write_char_by_handle WAITING\n");
 		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+	}
+	return 0;
+}
+
+int gn_gattlib_reliable_write_char_by_handle(gatt_connection_t* connection, uint16_t handle, const void* buffer, size_t buffer_len) {
+	gattlib_context_t* conn_context = connection->context;
+	int write_completed = FALSE;
+
+	guint ret = gatt_reliable_write_char(conn_context->attrib, handle, (void*)buffer, buffer_len,
+				    gattlib_write_result_cb, &write_completed);
+	if (ret == 0) {
+		return 1;
+	}
+
+	// Wait for completion of the event
+	while(write_completed == FALSE) {
+		//printf("gattlib_write_char_by_handle WAITING\n");
+		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+	}
+	return 0;
+}
+
+int gn_gattlib_write_char_by_handle_with_timeout(gatt_connection_t* connection, uint16_t handle, const void* buffer, size_t buffer_len,
+	int timeout_secs, int* timed_out) {
+
+	gattlib_context_t* conn_context = connection->context;
+	int write_result = GN_WRITE_INCOMPLETE;
+
+	guint req_id = gatt_write_char(conn_context->attrib, handle, (void*)buffer, buffer_len,
+				    gattlib_write_result_cb, &write_result);
+	if (req_id == 0) {
+		return 1;
+	}
+
+	gattlib_timeout_add_seconds(timeout_secs, gn_write_timeout_cb, &write_result);
+
+	// Wait for completion of the event
+	while(write_result == GN_WRITE_INCOMPLETE) {
+		//printf("gattlib_write_char_by_handle WAITING\n");
+		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+	}
+
+	*timed_out = write_result == GN_WRITE_TIMEOUT;
+	if (*timed_out) {
+		g_attrib_cancel(conn_context->attrib, req_id);
 	}
 	return 0;
 }
