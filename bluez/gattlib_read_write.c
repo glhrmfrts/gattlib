@@ -245,7 +245,8 @@ enum {
 };
 
 gboolean gn_write_timeout_cb(gpointer user_data) {
-
+	int* write_result = user_data;
+	*write_result = GN_WRITE_TIMEOUT;
 	return G_SOURCE_REMOVE;
 }
 
