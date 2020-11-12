@@ -455,6 +455,8 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid, void*
      */
 int gattlib_read_char_by_handle(gatt_connection_t* connection, uint16_t handle, void** buffer, size_t* buffer_len);
 
+int gn_gattlib_read_char_by_handle_with_timeout(gatt_connection_t* connection, uint16_t handle, void** buffer, size_t* buffer_len, int timeout_secs, int* timed_out);
+
 /**
  * @brief Function to asynchronously read GATT characteristic
  *

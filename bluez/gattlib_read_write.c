@@ -30,11 +30,17 @@
 #include "gattrib.h"
 #include "gatt.h"
 
+enum {
+	GN_RW_INCOMPLETE = 0,
+	GN_RW_OK = 1,
+	GN_RW_TIMEOUT = 2,
+};
+
 struct gattlib_result_read_t {
 	void**         buffer;
 	size_t*        buffer_len;
 	gatt_read_cb_t callback;
-	int            completed;
+	int            rw_result;
 };
 
 static void gattlib_result_read_uuid_cb(guint8 status, const guint8 *pdu, guint16 len, gpointer user_data) {
@@ -89,7 +95,7 @@ done:
 	if (gattlib_result->callback) {
 		free(gattlib_result);
 	} else {
-		gattlib_result->completed = TRUE;
+		gattlib_result->rw_result = TRUE;
 	}
 }
 
@@ -127,8 +133,15 @@ done:
 	if (gattlib_result->callback) {
 		free(gattlib_result);
 	} else {
-		gattlib_result->completed = TRUE;
+		gattlib_result->rw_result = GN_RW_OK;
 	}
+}
+
+static gboolean gn_read_timeout_cb(gpointer user_data) {
+	struct gattlib_result_read_t* gattlib_result = user_data;
+	printf("gn_read_timeout_cb\n");
+	gattlib_result->rw_result = GN_RW_TIMEOUT;
+	return G_SOURCE_REMOVE;
 }
 
 void uuid_to_bt_uuid(uuid_t* uuid, bt_uuid_t* bt_uuid) {
@@ -160,7 +173,7 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid,
 	gattlib_result->buffer         = buffer;
 	gattlib_result->buffer_len     = buffer_len;
 	gattlib_result->callback       = NULL;
-	gattlib_result->completed      = FALSE;
+	gattlib_result->rw_result      = FALSE;
 
 	uuid_to_bt_uuid(uuid, &bt_uuid);
 
@@ -168,7 +181,7 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid,
 			       gattlib_result_read_uuid_cb, gattlib_result);
 
 	// Wait for completion of the event
-	while(gattlib_result->completed == FALSE) {
+	while(gattlib_result->rw_result == FALSE) {
       //printf("WAITING\n");
 		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
 	}
@@ -188,15 +201,52 @@ int gattlib_read_char_by_handle(gatt_connection_t* connection, uint16_t handle, 
     gattlib_result->buffer         = buffer;
     gattlib_result->buffer_len     = buffer_len;
     gattlib_result->callback       = NULL;
-    gattlib_result->completed      = FALSE;
+    gattlib_result->rw_result      = FALSE;
 
     gatt_read_char(conn_context->attrib, handle, gattlib_result_read_cb, gattlib_result);
 
     // Wait for completion of the event
-    while(gattlib_result->completed == FALSE) {
+    while(gattlib_result->rw_result == FALSE) {
         //printf("WAITING\n");
         g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
     }
+
+    free(gattlib_result);
+    return GATTLIB_SUCCESS;
+}
+
+int gn_gattlib_read_char_by_handle_with_timeout(gatt_connection_t* connection, uint16_t handle, void** buffer, size_t* buffer_len,
+	int timeout_secs, int* timed_out) {
+
+    gattlib_context_t* conn_context = connection->context;
+    struct gattlib_result_read_t* gattlib_result;
+
+    gattlib_result = malloc(sizeof(struct gattlib_result_read_t));
+    if (gattlib_result == NULL) {
+        return GATTLIB_OUT_OF_MEMORY;
+    }
+    gattlib_result->buffer         = buffer;
+    gattlib_result->buffer_len     = buffer_len;
+    gattlib_result->callback       = NULL;
+    gattlib_result->rw_result      = GN_RW_INCOMPLETE;
+
+    guint req_id = gatt_read_char(conn_context->attrib, handle, gattlib_result_read_cb, gattlib_result);
+
+	GSource* timeout_source = gattlib_timeout_add_seconds(timeout_secs, gn_read_timeout_cb, gattlib_result);
+
+    // Wait for completion of the event
+    while(gattlib_result->rw_result == GN_RW_INCOMPLETE) {
+        //printf("WAITING\n");
+        g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+    }
+
+	*timed_out = gattlib_result->rw_result == GN_RW_TIMEOUT;
+	if (*timed_out) {
+		g_attrib_cancel(conn_context->attrib, req_id);
+	}
+	else {
+		g_source_destroy(timeout_source);
+	}
 
     free(gattlib_result);
     return GATTLIB_SUCCESS;
@@ -218,7 +268,7 @@ int gattlib_read_char_by_uuid_async(gatt_connection_t* connection, uuid_t* uuid,
 	gattlib_result->buffer         = NULL;
 	gattlib_result->buffer_len     = 0;
 	gattlib_result->callback       = gatt_read_cb;
-	gattlib_result->completed      = FALSE;
+	gattlib_result->rw_result      = FALSE;
 
 	uuid_to_bt_uuid(uuid, &bt_uuid);
 
@@ -238,15 +288,9 @@ void gattlib_write_result_cb(guint8 status, const guint8 *pdu, guint16 len, gpoi
 	*write_completed = TRUE;
 }
 
-enum {
-	GN_WRITE_INCOMPLETE = 0,
-	GN_WRITE_OK = 1,
-	GN_WRITE_TIMEOUT = 2,
-};
-
-gboolean gn_write_timeout_cb(gpointer user_data) {
+static gboolean gn_write_timeout_cb(gpointer user_data) {
 	int* write_result = user_data;
-	*write_result = GN_WRITE_TIMEOUT;
+	*write_result = GN_RW_TIMEOUT;
 	return G_SOURCE_REMOVE;
 }
 
@@ -290,7 +334,7 @@ int gn_gattlib_write_char_by_handle_with_timeout(gatt_connection_t* connection, 
 	int timeout_secs, int* timed_out) {
 
 	gattlib_context_t* conn_context = connection->context;
-	int write_result = GN_WRITE_INCOMPLETE;
+	int write_result = GN_RW_INCOMPLETE;
 
 	guint req_id = gatt_write_char(conn_context->attrib, handle, (void*)buffer, buffer_len,
 				    gattlib_write_result_cb, &write_result);
@@ -298,17 +342,20 @@ int gn_gattlib_write_char_by_handle_with_timeout(gatt_connection_t* connection, 
 		return 1;
 	}
 
-	gattlib_timeout_add_seconds(timeout_secs, gn_write_timeout_cb, &write_result);
+	GSource* timeout_source = gattlib_timeout_add_seconds(timeout_secs, gn_write_timeout_cb, &write_result);
 
 	// Wait for completion of the event
-	while(write_result == GN_WRITE_INCOMPLETE) {
+	while(write_result == GN_RW_INCOMPLETE) {
 		//printf("gattlib_write_char_by_handle WAITING\n");
 		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
 	}
 
-	*timed_out = write_result == GN_WRITE_TIMEOUT;
+	*timed_out = write_result == GN_RW_TIMEOUT;
 	if (*timed_out) {
 		g_attrib_cancel(conn_context->attrib, req_id);
+	}
+	else {
+		g_source_destroy(timeout_source);
 	}
 	return 0;
 }
