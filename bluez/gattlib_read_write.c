@@ -395,7 +395,13 @@ int gattlib_notification_start(gatt_connection_t* connection, const uuid_t* uuid
 	}
 
 	// Enable Status Notification
-	return gattlib_write_char_by_handle(connection, handle + 1, &enable_notification, sizeof(enable_notification));
+	int timed_out = 0;
+	ret = gn_gattlib_write_char_by_handle_with_timeout(connection, handle + 1, &enable_notification, sizeof(enable_notification), 10, &timed_out);
+	if (timed_out) {
+		return 1025;
+	}
+
+	return ret;
 }
 
 int gattlib_notification_stop(gatt_connection_t* connection, const uuid_t* uuid) {
@@ -408,5 +414,11 @@ int gattlib_notification_stop(gatt_connection_t* connection, const uuid_t* uuid)
 	}
 
 	// Enable Status Notification
-	return gattlib_write_char_by_handle(connection, handle + 1, &enable_notification, sizeof(enable_notification));
+	int timed_out = 0;
+	ret = gn_gattlib_write_char_by_handle_with_timeout(connection, handle + 1, &enable_notification, sizeof(enable_notification), 10, &timed_out);
+	if (timed_out) {
+		return 1025;
+	}
+
+	return ret;
 }
