@@ -183,7 +183,7 @@ int gattlib_read_char_by_uuid(gatt_connection_t* connection, uuid_t* uuid,
 	// Wait for completion of the event
 	while(gattlib_result->rw_result == FALSE) {
       //printf("WAITING\n");
-		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+		gn_gattlib_iteration();
 	}
 
 	free(gattlib_result);
@@ -208,7 +208,7 @@ int gattlib_read_char_by_handle(gatt_connection_t* connection, uint16_t handle, 
     // Wait for completion of the event
     while(gattlib_result->rw_result == FALSE) {
         //printf("WAITING\n");
-        g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+        gn_gattlib_iteration();
     }
 
     free(gattlib_result);
@@ -237,16 +237,15 @@ int gn_gattlib_read_char_by_handle_with_timeout(gatt_connection_t* connection, u
     // Wait for completion of the event
     while(gattlib_result->rw_result == GN_RW_INCOMPLETE) {
         //printf("WAITING\n");
-        g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+        gn_gattlib_iteration();
     }
 
 	*timed_out = gattlib_result->rw_result == GN_RW_TIMEOUT;
 	if (*timed_out) {
 		g_attrib_cancel(conn_context->attrib, req_id);
 	}
-	else {
-		g_source_destroy(timeout_source);
-	}
+	
+	g_source_destroy(timeout_source);
 
     free(gattlib_result);
     return GATTLIB_SUCCESS;
@@ -307,7 +306,7 @@ int gattlib_write_char_by_handle(gatt_connection_t* connection, uint16_t handle,
 	// Wait for completion of the event
 	while(write_completed == FALSE) {
 		//printf("gattlib_write_char_by_handle WAITING\n");
-		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+		gn_gattlib_iteration();
 	}
 	return 0;
 }
@@ -325,7 +324,7 @@ int gn_gattlib_reliable_write_char_by_handle(gatt_connection_t* connection, uint
 	// Wait for completion of the event
 	while(write_completed == FALSE) {
 		//printf("gattlib_write_char_by_handle WAITING\n");
-		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+		gn_gattlib_iteration();
 	}
 	return 0;
 }
@@ -347,16 +346,16 @@ int gn_gattlib_write_char_by_handle_with_timeout(gatt_connection_t* connection, 
 	// Wait for completion of the event
 	while(write_result == GN_RW_INCOMPLETE) {
 		//printf("gattlib_write_char_by_handle WAITING\n");
-		g_main_context_iteration(g_gattlib_thread.loop_context, FALSE);
+		gn_gattlib_iteration();
 	}
 
 	*timed_out = write_result == GN_RW_TIMEOUT;
 	if (*timed_out) {
 		g_attrib_cancel(conn_context->attrib, req_id);
 	}
-	else {
-		g_source_destroy(timeout_source);
-	}
+
+	g_source_destroy(timeout_source);
+
 	return 0;
 }
 

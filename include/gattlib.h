@@ -707,6 +707,8 @@ int gattlib_string_to_uuid(const char *str, size_t size, uuid_t *uuid);
  */
 int gattlib_uuid_cmp(const uuid_t *uuid1, const uuid_t *uuid2);
 
+void gn_gattlib_iteration();
+
 #ifdef __cplusplus
 }
 #endif

@@ -39,6 +39,8 @@
   #include "src/shared/util.h"
 #endif
 
+#define GN_USE_THREAD 0
+
 typedef struct _GAttrib GAttrib;
 
 struct gattlib_thread_t {
