@@ -27,10 +27,10 @@ include(CrossCompilation.cmake)
 
 project(gattlib)
 
-option(GATTLIB_BUILD_EXAMPLES "Build GattLib examples" YES)
-option(GATTLIB_SHARED_LIB "Build GattLib as a shared library" YES)
-option(GATTLIB_BUILD_DOCS "Build GattLib docs" YES)
-option(GATTLIB_PYTHON_INTERFACE "Build GattLib Python Interface" YES)
+option(GATTLIB_BUILD_EXAMPLES "Build GattLib examples" OFF)
+option(GATTLIB_SHARED_LIB "Build GattLib as a shared library" OFF)
+option(GATTLIB_BUILD_DOCS "Build GattLib docs" OFF)
+option(GATTLIB_PYTHON_INTERFACE "Build GattLib Python Interface" OFF)
 
 find_package(PkgConfig REQUIRED)
 find_package(Doxygen)
