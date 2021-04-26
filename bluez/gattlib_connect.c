@@ -101,8 +101,6 @@ static gboolean io_listen_cb(gpointer user_data) {
 	gatt_connection_t *conn = user_data;
 	gattlib_context_t* conn_context = conn->context;
 
-	printf("io_listen_cb\n");
-
 	g_attrib_register(conn_context->attrib, ATT_OP_HANDLE_NOTIFY,
 #if BLUEZ_VERSION_MAJOR == 5
 			GATTRIB_ALL_HANDLES,
@@ -119,8 +117,6 @@ static gboolean io_listen_cb(gpointer user_data) {
 
 static void io_connect_cb(GIOChannel *io, GError *err, gpointer user_data) {
 	io_connect_arg_t* io_connect_arg = user_data;
-
-	printf("io_connect_cb\n");
 
 	if (err) {
 		io_connect_arg->error = err;
